@@ -8,7 +8,6 @@
 import Foundation
 @testable import RogersLocalEventsExplorer
 
-
 // MARK: - Mock Network Manager
 final class MockNetworkManager: NetworkManagerProtocol {
     func fetchEventsJSON() async throws -> [RogersLocalEventsExplorer.Event] {
@@ -35,7 +34,6 @@ final class MockLocalStore: CoreDataStoreProtocol {
     var cachedEvents: [Event] = []
     var bookmarks: Set<Int> = []
     var isExpired = false
-    
     let cachedEvent = Event(id: 1,
                             title: "Swift Local Meetup",
                             locationName: "Calgary",
@@ -76,7 +74,6 @@ final class MockLocalStore: CoreDataStoreProtocol {
 }
 
 final class MockEventsRepository: EventsRepositoryProtocol {
-    
     let event1 =  Event(id: 1,
                         title: "A",
                         locationName: "Toronto - A",

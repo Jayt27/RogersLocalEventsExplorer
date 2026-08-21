@@ -5,7 +5,6 @@
 //  Created by Jay Thakkar on 20/08/26.
 //
 
-
 protocol EventsRepositoryProtocol {
     /// Get All Events
     func getEvents(forceRefresh: Bool) async throws -> [Event]

@@ -90,4 +90,3 @@ struct EventDetailView: View {
         mapItem.openInMaps(launchOptions: launchOptions)
     }
 }
-

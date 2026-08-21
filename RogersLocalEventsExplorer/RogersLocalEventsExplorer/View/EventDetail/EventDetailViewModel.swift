@@ -63,7 +63,6 @@ final class EventDetailViewModel: ObservableObject {
         return (event.latitude, event.longitude)
     }
 
-
     /// call through the repository, reflect the persisted result.
     func toggleBookmark() {
         Task {
