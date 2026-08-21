@@ -7,32 +7,118 @@
 
 import XCTest
 @testable import RogersLocalEventsExplorer
+import _LocationEssentials
 
 final class RogersLocalEventsExplorerTests: XCTestCase {
 
-    override func setUpWithError() throws {
-        // Put setup code here. This method is called before the invocation of each test method in the class.
+    var repository: EventsRepository!
+    var mockNetwork: MockNetworkManager!
+    var mockLocal: MockLocalStore!
+
+    override func setUp() {
+        super.setUp()
+        mockNetwork = MockNetworkManager()
+        mockLocal = MockLocalStore()
+        repository = EventsRepository(network: mockNetwork, localStore: mockLocal)
     }
 
-    override func tearDownWithError() throws {
-        // Put teardown code here. This method is called after the invocation of each test method in the class.
+    func testGetEvents_WhenCacheValid_ReturnsLocalData() async throws {
+        // Arrange
+        let cachedEvent = mockLocal.cachedEvent
+        mockLocal.cachedEvents = [cachedEvent]
+        mockLocal.isExpired = false
+
+        // Act
+        let result = try await repository.getEvents(forceRefresh: false)
+
+        // Assert
+        XCTAssertEqual(result.count, 1)
+        let title = await result.first?.title
+        XCTAssertEqual(title, "Swift Local Meetup")
     }
 
-    func testExample() throws {
-        // This is an example of a functional test case.
-        // Use XCTAssert and related functions to verify your tests produce the correct results.
-        // Any test you write for XCTest can be annotated as throws and async.
-        // Mark your test throws to produce an unexpected failure when your test encounters an uncaught error.
-        // Mark your test async to allow awaiting for asynchronous code to complete. Check the results with assertions afterwards.
-        // XCTest Documentation
-        // https://developer.apple.com/documentation/xctest
+    func testGetEvents_WhenNetworkThrows_FallsbackToCache() async throws {
+        // Arrange
+        let cachedEvent = mockLocal.cachedEvent
+        mockLocal.cachedEvents = [cachedEvent]
+        mockLocal.isExpired = true
+
+        // Setup mock network to simulate connection failure
+        mockNetwork.shouldFail = true
+
+        // Act
+        let result = try await repository.getEvents(forceRefresh: false)
+
+        // Assert
+        XCTAssertEqual(result.count, 1)
+
+        let title = await result.first?.title
+        XCTAssertEqual(title, "Swift Local Meetup")
     }
 
-    func testPerformanceExample() throws {
-        // This is an example of a performance test case.
-        self.measure {
-            // Put the code you want to measure the time of here.
-        }
+    @MainActor
+    func test_listViewModel_toggleBookmarkFilter_filtersInMemory() async {
+        // Arrange
+        let mockRepo = MockEventsRepository()
+
+        mockRepo.mockEvents = [mockRepo.event1, mockRepo.event2]
+        mockRepo.mockBookmarkedIds = [1] // Only event 1 is saved in the bookmark index
+
+        let viewModel = EventsViewModel(repository: mockRepo)
+        await viewModel.fetchEvents(forceRefresh: true)
+
+        // Act
+        viewModel.toggleBookmarkFilter() // Turn filter ON
+
+        // Assert
+        XCTAssertTrue(viewModel.isFilteringBookmarks)
+        XCTAssertEqual(viewModel.events.count, 1)
+        XCTAssertEqual(viewModel.events.first?.id, 1, "Only the bookmarked element should be visible.")
     }
 
+    @MainActor
+    func test_detailViewModel_computesCorrectDistanceInKilometers() {
+        // Arrange
+        // Toronto Coordinates (Event Location)
+        let event =  Event(id: 9,
+                            title: "oronto Show",
+                            locationName: "Center",
+                            latitude: 43.6532,
+                            longitude: -79.3832,
+                            timestamp: Date(),
+                            imageUrlString: "")
+
+        let viewModel = EventDetailViewModel(event: event, isBookmarked: false)
+
+        // Montreal Coordinates (Simulated User Location)
+        let userLocation = CLLocation(latitude: 45.5017, longitude: -73.5673)
+
+        viewModel.updateUserLocation(userLocation)
+        // Act
+        let computedDistance = viewModel.calculateDistance() // Extracted core math utility
+
+        // Assert
+        // Physical distance from Toronto to Montreal is ~500km
+        XCTAssertEqual(computedDistance, 504.0, accuracy: 5.0, "The spatial distance logic should compute correctly within a reasonable margin.")
+    }
+
+    @MainActor
+    func test_detailViewModel_DistanceWithoutUserLocation() {
+        // Arrange
+        // Toronto Coordinates (Event Location)
+        let event =  Event(id: 9,
+                            title: "oronto Show",
+                            locationName: "Center",
+                            latitude: 43.6532,
+                            longitude: -79.3832,
+                            timestamp: Date(),
+                            imageUrlString: "")
+        let viewModel = EventDetailViewModel(event: event, isBookmarked: false)
+
+        // Act
+        let computedDistance = viewModel.calculateDistance() // Extracted core math utility
+
+        // Assert
+        XCTAssertEqual(computedDistance, 0)
+    }
 }
